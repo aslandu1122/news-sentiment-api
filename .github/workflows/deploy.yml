@@ -1,0 +1,35 @@
+name: Deploy to Tencent SCF
+on:
+  push:
+    branches: [ main ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Deploy Python Function to Tencent SCF
+        uses: sky-wolf/action-scf@v2.0.2
+        with:
+          # 必须参数，与你在GitHub Secrets中设置的名字一致
+          secret-id: ${{ secrets.TENCENT_SECRET_ID }}
+          secret-key: ${{ secrets.TENCENT_SECRET_KEY }}
+          region: ${{ secrets.TENCENT_REGION }}
+          function-name: ${{ secrets.TENCENT_FUNCTION_NAME }}
+          
+          # 函数配置（根据你的情况修改）
+          handler: index.main_handler
+          runtime: Python3.7
+          src: . 
+          # 如果你的代码在子目录，请修改src，例如: src: './src'
+          
+          # 触发器配置：启用函数URL
+          trigger: true
+          trigger-type: apigw
+          trigger-enable: true
+          trigger-protocol: HTTP
+          trigger-method: POST
+          # 以下配置可确保创建/更新函数URL
+          apigw-service-name: scf_api_service
+          apigw-service-timeout: 15
