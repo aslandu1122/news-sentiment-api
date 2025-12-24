@@ -1,4 +1,4 @@
-name: Deploy Python Function to Tencent SCF
+name: Deploy to Tencent SCF
 
 on:
   push:
@@ -11,25 +11,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Deploy to Tencent SCF
-        # 使用腾讯云官方维护的 Action
-        uses: run-wenjing/tencent-scf-action@v2
-        with:
-          # 【核心】必须填入你在 GitHub Secrets 中设置的名字
-          secret-id: ${{ secrets.TENCENT_SECRET_ID }}
-          secret-key: ${{ secrets.TENCENT_SECRET_KEY }}
-          # 函数配置：必须与你控制台中的函数配置匹配
-          function-name: ${{ secrets.TENCENT_FUNCTION_NAME }}
-          region: ${{ secrets.TENCENT_REGION }}
-          src: .  # 源代码目录，表示根目录的所有文件
-          handler: index.main_handler  # 你的入口函数
-          runtime: Python3.7          # 运行环境
-          # 【关键】指定为 Web 函数，这是使用函数 URL 的前提
-          function-type: web
-          # 【关键】配置函数 URL 触发器
-          trigger-types: apigw
-          trigger-enable: true
-          trigger-protocol: HTTP
-          trigger-method: POST
-          # 配置函数 URL 的鉴权方式，'NONE' 表示匿名访问（测试用），生产环境建议改为 'TRUE'
-          trigger-apigw-enable-auth: 'NONE'
+      - name: Deploy using Tencent Cloud CLI (Docker)
+        env:
+          TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
+          TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
+          FUNCTION_NAME: ${{ secrets.TENCENT_FUNCTION_NAME }}
+          REGION: ${{ secrets.TENCENT_REGION }}
+        run: |
+          # 使用官方 Docker 镜像运行腾讯云 CLI
+          docker run --rm -v $(pwd):/src \
+            -e TENCENT_SECRET_ID=${TENCENT_SECRET_ID} \
+            -e TENCENT_SECRET_KEY=${TENCENT_SECRET_KEY} \
+            tencentcloud/tencentcloud-cli \
+            tccli scf CreateFunction \
+            --FunctionName ${FUNCTION_NAME} \
+            --Region ${REGION} \
+            --Runtime Python3.7 \
+            --Handler index.main_handler \
+            --CodeSource /src \
+            --Type Web \
+            --MemorySize 128 \
+            --Timeout 30 \
+            --Environment '{"Variables": {}}' \
+            --Namespace default
