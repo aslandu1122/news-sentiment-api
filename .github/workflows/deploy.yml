@@ -1,4 +1,4 @@
-name: Deploy to Tencent SCF
+name: Deploy to Tencent SCF with Python SDK
 
 on:
   push:
@@ -11,26 +11,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Deploy using Tencent Cloud CLI (Docker)
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+
+      - name: Install Tencent Cloud SDK
+        run: |
+          pip install tencentcloud-sdk-python
+          pip install tencentcloud-sdk-python-scf
+
+      - name: Deploy Function
         env:
           TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
           TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
-          FUNCTION_NAME: ${{ secrets.TENCENT_FUNCTION_NAME }}
-          REGION: ${{ secrets.TENCENT_REGION }}
+          TENCENT_FUNCTION_NAME: ${{ secrets.TENCENT_FUNCTION_NAME }}
+          TENCENT_REGION: ${{ secrets.TENCENT_REGION }}
         run: |
-          # 使用官方 Docker 镜像运行腾讯云 CLI
-          docker run --rm -v $(pwd):/src \
-            -e TENCENT_SECRET_ID=${TENCENT_SECRET_ID} \
-            -e TENCENT_SECRET_KEY=${TENCENT_SECRET_KEY} \
-            tencentcloud/tencentcloud-cli \
-            tccli scf CreateFunction \
-            --FunctionName ${FUNCTION_NAME} \
-            --Region ${REGION} \
-            --Runtime Python3.7 \
-            --Handler index.main_handler \
-            --CodeSource /src \
-            --Type Web \
-            --MemorySize 128 \
-            --Timeout 30 \
-            --Environment '{"Variables": {}}' \
-            --Namespace default
+          python deploy_with_sdk.py
