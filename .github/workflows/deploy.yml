@@ -1,4 +1,4 @@
-name: Deploy to Tencent SCF
+name: Deploy Python Function to Tencent SCF
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
       - name: Install Tencent Cloud SDK
         run: pip install tencentcloud-sdk-python
 
-      - name: Deploy Function
+      - name: Deploy using Python SDK
         env:
           TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
           TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
