@@ -51,6 +51,16 @@ jobs:
           echo "打包完成，文件信息："
           ls -lh code.zip
 
+      - name: 🔍 调试：验证Secrets读取
+        env:
+          TEN_ID: ${{ secrets.TENCENT_SECRET_ID }}
+          TEN_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
+        run: |
+          echo "验证Secrets是否已传入..."
+          echo "TEN_ID 前几位: ${TEN_ID:0:6}"
+          echo "TEN_KEY 前几位: ${TEN_KEY:0:6}"
+          echo "如果上面没有显示任何字符，说明Secrets未正确设置。"
+
       # 5. 调用API更新云函数代码
       - name: ⬆️ 更新云函数代码
         run: |
