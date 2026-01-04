@@ -27,17 +27,16 @@ jobs:
           TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
           TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
         run: |
-          # 正确命令：使用 set <key> <value> 格式，不要加 --
-          tccli configure set region ap-guangzhou  # 请确认地域
-          tccli configure set secret-id $TENCENT_SECRET_ID
-          tccli configure set secret-key $TENCENT_SECRET_KEY
-          set -x  # 开启调试，显示实际执行的命令
-          tccli --version  # 查看tccli版本
-          tccli configure set secret-id "$TENCENT_SECRET_ID"
-          tccli configure set secret-key "$TENCENT_SECRET_KEY"
-          tccli configure set region ap-guangzhou
-          set +x
-          echo "调试信息结束"
+          # 直接创建 ~/.tccli/configure 配置文件
+          mkdir -p ~/.tccli
+          cat > ~/.tccli/configure << EOF
+          [default]
+          region = ap-guangzhou
+          secret-id = $TENCENT_SECRET_ID
+          secret-key = $TENCENT_SECRET_KEY
+          EOF
+          echo "配置文件已生成，内容如下（密钥已隐藏）："
+          sed 's/secret-id.*/secret-id = ********/; s/secret-key.*/secret-key = ********/' ~/.tccli/configure
           
           # 可选：验证配置是否成功写入
           echo "检查当前配置..."
