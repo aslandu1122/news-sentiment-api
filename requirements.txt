@@ -1,0 +1,4 @@
+# 阿里云SDK（可选，如果使用模拟API则不需要）
+# 注意：此函数使用Python内置库，无需额外依赖即可运行
+aliyun-python-sdk-core>=2.13.0
+aliyun-python-sdk-alinlp>=1.0.0
