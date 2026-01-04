@@ -1,0 +1,50 @@
+name: 🚀 自动部署至腾讯云SCF
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 拉取代码
+      - name: 🔄 检出代码
+        uses: actions/checkout@v3
+
+      # 2. 安装 Python 和必要的工具
+      - name: 🐍 设置 Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+
+      - name: 📦 安装腾讯云命令行工具 (tccli)
+        run: pip install tccli
+
+      # 3. 配置 tccli 认证信息（使用 GitHub Secrets）
+      - name: 🔑 配置 tccli 认证
+        env:
+          TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
+          TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
+        run: |
+          tccli configure set region ap-guangzhou  # 请替换为你的函数地域
+          tccli configure set secret-id $TENCENT_SECRET_ID
+          tccli configure set secret-key $TENCENT_SECRET_KEY
+
+      # 4. 打包源代码（必须包含 sentiment_analysis.py 和 requirements.txt）
+      - name: 📁 打包源代码
+        run: |
+          echo "正在打包源代码..."
+          zip -r code.zip . -x '*.git*' '*.github*' '*.DS_Store'
+
+      # 5. 更新云函数代码
+      - name: ⬆️ 更新云函数代码
+        run: |
+          echo "正在更新云函数 [news-sentiment] 的代码..."
+          tccli scf UpdateFunctionCode \
+            --FunctionName news-sentiment-analyzer  # 请务必改为你的函数名！
+            --ZipFile fileb://code.zip
+
+      # 6. 输出成功信息
+      - name: 🎉 部署完成
+        run: echo "✅ 代码已成功部署至腾讯云云函数！请手动检查函数URL是否正常。"
