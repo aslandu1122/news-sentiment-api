@@ -1,4 +1,4 @@
-name: 🚀 自动部署至腾讯云SCF
+name: 🚀 使用 Python SDK 部署至腾讯云 SCF
 
 on:
   push:
@@ -8,72 +8,68 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1. 检出代码
       - name: 🔄 检出代码
         uses: actions/checkout@v3
 
-      # 2. 设置Python环境并安装腾讯云命令行工具
-      - name: 🐍 设置 Python
+      - name: 🐍 设置 Python 环境
         uses: actions/setup-python@v4
         with:
           python-version: '3.8'
 
-      - name: 📦 安装腾讯云命令行工具 (tccli)
-        run: pip install tccli
+      - name: 📦 安装依赖 (腾讯云 SDK)
+        run: pip install tencentcloud-sdk-python
 
-      # 3. 配置 tccli 认证（使用GitHub Secrets）
-      - name: 🔑 配置 tccli 认证
+      - name: 📁 创建部署包
+        run: |
+          # 创建一个干净的临时目录，只放入运行所需的文件
+          mkdir -p deploy_pkg
+          cp sentiment_analysis.py requirements.txt deploy_pkg/
+          cd deploy_pkg
+          zip -r ../function.zip ./*
+          cd ..
+          echo "部署包 function.zip 已创建，包含文件："
+          unzip -l function.zip
+
+      - name: ⬆️ 使用 Python SDK 更新云函数
         env:
+          # 直接从 GitHub Secrets 读取，安全且已验证有效
           TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
           TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
         run: |
-          # 直接创建 ~/.tccli/configure 配置文件
-          mkdir -p ~/.tccli
-          cat > ~/.tccli/configure << EOF
-          [default]
-          region = ap-guangzhou
-          secret-id = $TENCENT_SECRET_ID
-          secret-key = $TENCENT_SECRET_KEY
-          EOF
-          echo "配置文件已生成，内容如下（密钥已隐藏）："
-          sed 's/secret-id.*/secret-id = ********/; s/secret-key.*/secret-key = ********/' ~/.tccli/configure
-          
-          # 可选：验证配置是否成功写入
-          echo "检查当前配置..."
-          cat ~/.tccli/configure
+          python -c "
+import os, json, base64
+from tencentcloud.common import credential
+from tencentcloud.common.profile.client_profile import ClientProfile
+from tencentcloud.common.profile.http_profile import HttpProfile
+from tencentcloud.scf.v20180416 import scf_client, models
 
-      # 4. 将源代码打包为ZIP文件
-      - name: 📁 打包源代码
-        run: |
-          echo "正在打包源代码为ZIP文件..."
-          # 压缩当前目录，排除Git和GitHub Actions相关文件
-          zip -r code.zip . -x '*.git*' '*.github/*' '.DS_Store'
-          echo "打包完成，文件信息："
-          ls -lh code.zip
+# 1. 认证（使用环境变量）
+cred = credential.Credential(os.environ['TENCENT_SECRET_ID'], os.environ['TENCENT_SECRET_KEY'])
 
-      - name: 🔍 调试：验证Secrets读取
-        env:
-          TEN_ID: ${{ secrets.TENCENT_SECRET_ID }}
-          TEN_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
-        run: |
-          echo "验证Secrets是否已传入..."
-          echo "TEN_ID 前几位: ${TEN_ID:0:6}"
-          echo "TEN_KEY 前几位: ${TEN_KEY:0:6}"
-          echo "如果上面没有显示任何字符，说明Secrets未正确设置。"
+# 2. 初始化客户端（请将 REGION 替换为你的函数地域，例如 ap-shanghai）
+REGION = 'ap-guangzhou'  # TODO: 重要！请修改为你的函数地域
+httpProfile = HttpProfile()
+httpProfile.endpoint = 'scf.tencentcloudapi.com'
+clientProfile = ClientProfile()
+clientProfile.httpProfile = httpProfile
+client = scf_client.ScfClient(cred, REGION, clientProfile)
 
-      # 5. 调用API更新云函数代码
-      - name: ⬆️ 更新云函数代码
-        run: |
-          echo "正在将代码包上传并更新云函数..."
-          # 请将 `YOUR_ACTUAL_FUNCTION_NAME` 替换为您的实际函数名
-          tccli scf UpdateFunctionCode --FunctionName news-sentiment-analyzer --ZipFile fileb://code.zip
-          echo "✅ 云函数代码更新指令已发送。"
+# 3. 读取并编码部署包
+with open('function.zip', 'rb') as f:
+    zip_file = base64.b64encode(f.read()).decode('utf-8')
 
-      # 6. 输出成功信息
-      - name: 🎉 部署完成
-        run: |
-          echo "========================================"
-          echo "🚀 GitHub Actions 工作流执行完毕！"
-          echo "理论上，您的代码已部署至腾讯云云函数。"
-          echo "提示：请登录腾讯云SCF控制台，确认函数代码已更新，并检查函数URL是否可以正常调用。"
-          echo "========================================"
+# 4. 构建更新请求
+req = models.UpdateFunctionCodeRequest()
+# TODO: 重要！请确保函数名与控制台完全一致
+req.FunctionName = 'news-sentiment-analyzer'  
+req.ZipFile = zip_file
+
+# 5. 发送请求
+try:
+    resp = client.UpdateFunctionCode(req)
+    print('🎉 函数代码更新成功！')
+    print('请求ID:', resp.RequestId)
+except Exception as e:
+    print('❌ 更新失败:', e)
+    exit(1)
+          "
